@@ -1,0 +1,75 @@
+name: release-linux-daemon
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux-daemon:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: install-deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            automake \
+            autotools-dev \
+            bsdmainutils \
+            build-essential \
+            ca-certificates \
+            curl \
+            git \
+            libboost-filesystem-dev \
+            libboost-system-dev \
+            libboost-thread-dev \
+            libevent-dev \
+            libsqlite3-dev \
+            libtool \
+            libzmq3-dev \
+            pkg-config \
+            python3
+
+      - name: build-daemon-binaries
+        run: |
+          ./autogen.sh
+          ./configure --without-gui --disable-bench --disable-fuzz-binary --without-miniupnpc --without-natpmp
+          make -C src/secp256k1 -j"$(nproc)" libsecp256k1.la
+          make -j"$(nproc)" pwdhd pwdh-cli pwdh-tx pwdh-wallet
+
+      - name: package
+        run: |
+          VERSION="$(./src/pwdhd --version | head -n1 | awk '{print $NF}' | sed 's/^v//')"
+          PKG_DIR="PWDH-Core-${VERSION}-linux-x86_64"
+          mkdir -p "${PKG_DIR}/bin" "${PKG_DIR}/systemd" "${PKG_DIR}/config"
+          cp src/pwdhd src/pwdh-cli src/pwdh-tx src/pwdh-wallet "${PKG_DIR}/bin/"
+          cp contrib/init/pwdhd.service "${PKG_DIR}/systemd/"
+          cp share/examples/pwdh.conf "${PKG_DIR}/config/"
+          tar -czf "${PKG_DIR}.tar.gz" "${PKG_DIR}"
+          sha256sum "${PKG_DIR}.tar.gz" > "${PKG_DIR}.tar.gz.sha256"
+          echo "version=${VERSION}" >> "$GITHUB_ENV"
+          echo "pkg=${PKG_DIR}.tar.gz" >> "$GITHUB_ENV"
+          echo "sha=${PKG_DIR}.tar.gz.sha256" >> "$GITHUB_ENV"
+
+      - name: upload-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-daemon-package
+          path: |
+            ${{ env.pkg }}
+            ${{ env.sha }}
+
+      - name: release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.pkg }}
+            ${{ env.sha }}

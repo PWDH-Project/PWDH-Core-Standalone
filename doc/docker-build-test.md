@@ -59,7 +59,7 @@ sudo REPO=PWDH-Project/PWDH-Core-Standalone VERSION=1.0.0 bash deploy/linux/inst
 The `deploy/node-easy` directory contains a lightweight mainnet daemon setup based on a prebuilt image.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/PWDH-Project/PWDH-Core/main/deploy/node-easy/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/PWDH-Project/PWDH-Core-Standalone/main/deploy/node-easy/install.sh | sudo bash
 ```
 
 ## Universal Linux/macOS Docker Tar

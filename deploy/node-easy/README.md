@@ -3,13 +3,13 @@
 ## One-Command Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/PWDH-Project/PWDH-Core/main/deploy/node-easy/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/PWDH-Project/PWDH-Core-Standalone/main/deploy/node-easy/install.sh | sudo bash
 ```
 
 ## Installation with Explicit Versioned Image
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/PWDH-Project/PWDH-Core/main/deploy/node-easy/install.sh | sudo PWDH_IMAGE=ghcr.io/pwdh-project/pwdh-core-daemon:1.0.0 bash
+curl -fsSL https://raw.githubusercontent.com/PWDH-Project/PWDH-Core-Standalone/main/deploy/node-easy/install.sh | sudo PWDH_IMAGE=ghcr.io/pwdh-project/pwdh-core-daemon:1.0.0 bash
 ```
 
 ## Service Management

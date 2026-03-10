@@ -1,0 +1,62 @@
+name: pwdh-core
+
+services:
+  pwdh-build-test:
+    build:
+      context: .
+      target: test
+    image: pwdh-core:test
+
+  pwdh-runtime:
+    build:
+      context: .
+      target: runtime
+    image: pwdh-core:runtime
+    command:
+      - "-printtoconsole=1"
+      - "-regtest=1"
+
+  pwdh-testnet:
+    build:
+      context: .
+      target: runtime
+    image: pwdh-core-testnet:latest
+    container_name: pwdh-core-testnet
+    restart: unless-stopped
+    command:
+      - "-testnet=1"
+      - "-server=1"
+      - "-listen=1"
+      - "-txindex=1"
+      - "-printtoconsole=1"
+      - "-conf=/etc/pwdh/pwdh.conf"
+      - "-datadir=/var/lib/pwdh"
+    volumes:
+      - ./deploy/testnet/pwdh.conf:/etc/pwdh/pwdh.conf:ro
+      - pwdh_testnet_data:/var/lib/pwdh
+    ports:
+      - "38934:38934"
+
+  pwdh-mainnet:
+    build:
+      context: .
+      target: runtime
+    image: pwdh-core-mainnet:latest
+    container_name: pwdh-core-mainnet
+    restart: unless-stopped
+    command:
+      - "-server=1"
+      - "-listen=1"
+      - "-txindex=1"
+      - "-printtoconsole=1"
+      - "-conf=/etc/pwdh/pwdh.conf"
+      - "-datadir=/var/lib/pwdh"
+    volumes:
+      - ./deploy/mainnet/pwdh.conf:/etc/pwdh/pwdh.conf:ro
+      - pwdh_mainnet_data:/var/lib/pwdh
+    ports:
+      - "37934:37934"
+
+volumes:
+  pwdh_testnet_data:
+  pwdh_mainnet_data:

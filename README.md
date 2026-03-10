@@ -26,7 +26,7 @@ PWDH Core is the reference full node implementation for validating blocks and tr
 ### Linux Server (one command)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/PWDH-Project/PWDH-Core/main/deploy/node-easy/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/PWDH-Project/PWDH-Core-Standalone/main/deploy/node-easy/install.sh | sudo bash
 ```
 
 ### Universal Linux/macOS Tar Bundle
