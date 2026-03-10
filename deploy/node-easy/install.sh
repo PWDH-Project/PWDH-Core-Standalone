@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${REPO:-PWDH-Project/PWDH-Core}"
+REPO="${REPO:-PWDH-Project/PWDH-Core-Standalone}"
 REF="${REF:-main}"
 TARGET_DIR="${TARGET_DIR:-/opt/pwdh-node}"
 IMAGE="${PWDH_IMAGE:-ghcr.io/pwdh-project/pwdh-core-daemon:1.0.0}"
