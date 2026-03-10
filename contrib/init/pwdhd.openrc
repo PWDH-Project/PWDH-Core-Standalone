@@ -1,0 +1,93 @@
+#!/sbin/openrc-run
+
+# backward compatibility for existing gentoo layout 
+#
+if [ -d "/var/lib/pwdh/.pwdh" ]; then
+	PWDHD_DEFAULT_DATADIR="/var/lib/pwdh/.pwdh"
+else
+	PWDHD_DEFAULT_DATADIR="/var/lib/pwdhd"
+fi
+
+PWDHD_CONFIGFILE=${PWDHD_CONFIGFILE:-/etc/pwdh/pwdh.conf}
+PWDHD_PIDDIR=${PWDHD_PIDDIR:-/var/run/pwdhd}
+PWDHD_PIDFILE=${PWDHD_PIDFILE:-${PWDHD_PIDDIR}/pwdhd.pid}
+PWDHD_DATADIR=${PWDHD_DATADIR:-${PWDHD_DEFAULT_DATADIR}}
+PWDHD_USER=${PWDHD_USER:-${PWDH_USER:-pwdh}}
+PWDHD_GROUP=${PWDHD_GROUP:-pwdh}
+PWDHD_BIN=${PWDHD_BIN:-/usr/bin/pwdhd}
+PWDHD_NICE=${PWDHD_NICE:-${NICELEVEL:-0}}
+PWDHD_OPTS="${PWDHD_OPTS:-${PWDH_OPTS}}"
+
+name="Bitcoin Core Daemon"
+description="Bitcoin cryptocurrency P2P network daemon"
+
+command="/usr/bin/pwdhd"
+command_args="-pid=\"${PWDHD_PIDFILE}\" \
+		-conf=\"${PWDHD_CONFIGFILE}\" \
+		-datadir=\"${PWDHD_DATADIR}\" \
+		-daemon \
+		${PWDHD_OPTS}"
+
+required_files="${PWDHD_CONFIGFILE}"
+start_stop_daemon_args="-u ${PWDHD_USER} \
+			-N ${PWDHD_NICE} -w 2000"
+pidfile="${PWDHD_PIDFILE}"
+
+# The retry schedule to use when stopping the daemon. Could be either
+# a timeout in seconds or multiple signal/timeout pairs (like
+# "SIGKILL/180 SIGTERM/300")
+retry="${PWDHD_SIGTERM_TIMEOUT}"
+
+depend() {
+	need localmount net
+}
+
+# verify
+# 1) that the datadir exists and is writable (or create it)
+# 2) that a directory for the pid exists and is writable
+# 3) ownership and permissions on the config file
+start_pre() {
+	checkpath \
+	-d \
+	--mode 0750 \
+	--owner "${PWDHD_USER}:${PWDHD_GROUP}" \
+	"${PWDHD_DATADIR}"
+
+	checkpath \
+	-d \
+	--mode 0755 \
+	--owner "${PWDHD_USER}:${PWDHD_GROUP}" \
+	"${PWDHD_PIDDIR}"
+
+	checkpath -f \
+	-o "${PWDHD_USER}:${PWDHD_GROUP}" \
+	-m 0660 \
+	"${PWDHD_CONFIGFILE}"
+
+	checkconfig || return 1
+}
+
+checkconfig()
+{
+	if grep -qs '^rpcuser=' "${PWDHD_CONFIGFILE}" && \
+		! grep -qs '^rpcpassword=' "${PWDHD_CONFIGFILE}" ; then
+		eerror ""
+		eerror "ERROR: You must set a secure rpcpassword to run pwdhd."
+		eerror "The setting must appear in ${PWDHD_CONFIGFILE}"
+		eerror ""
+		eerror "This password is security critical to securing wallets "
+		eerror "and must not be the same as the rpcuser setting."
+		eerror "You can generate a suitable random password using the following "
+		eerror "command from the shell:"
+		eerror ""
+		eerror "bash -c 'tr -dc a-zA-Z0-9 < /dev/urandom | head -c32 && echo'"
+		eerror ""
+		eerror "It is recommended that you also set alertnotify so you are "
+		eerror "notified of problems:"
+		eerror ""
+		eerror "ie: alertnotify=echo %%s | mail -s \"Bitcoin Alert\"" \
+			"admin@foo.com"
+		eerror ""
+		return 1
+	fi
+}

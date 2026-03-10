@@ -1,0 +1,511 @@
+// Copyright (c) 2009-2025 Satoshi Nakamoto
+// Copyright (c) 2009-2024 The Bitcoin Core developers
+// Copyright (c) 2025 The PWDH developers
+// Forked from Bitcoin Core version 0.27.0
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#include <kernel/chainparams.h>
+
+#include <chainparamsseeds.h>
+#include <consensus/amount.h>
+#include <consensus/merkle.h>
+#include <consensus/params.h>
+#include <hash.h>
+#include <kernel/messagestartchars.h>
+#include <logging.h>
+#include <primitives/block.h>
+#include <primitives/transaction.h>
+#include <script/interpreter.h>
+#include <script/script.h>
+#include <uint256.h>
+#include <util/chaintype.h>
+#include <util/strencodings.h>
+
+#include <algorithm>
+#include <cassert>
+#include <cstdint>
+#include <cstring>
+#include <type_traits>
+
+static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
+{
+    CMutableTransaction txNew;
+    txNew.nVersion = 1;
+    txNew.vin.resize(1);
+    txNew.vout.resize(1);
+    txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+    txNew.vout[0].nValue = genesisReward;
+    txNew.vout[0].scriptPubKey = genesisOutputScript;
+
+    CBlock genesis;
+    genesis.nTime    = nTime;
+    genesis.nBits    = nBits;
+    genesis.nNonce   = nNonce;
+    genesis.nVersion = nVersion;
+    genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
+    genesis.hashPrevBlock.SetNull();
+    genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
+    return genesis;
+}
+
+/**
+ * Build the genesis block. Note that the output of its generation
+ * transaction cannot be spent since it did not originally exist in the
+ * database.
+ *
+ * CBlock(hash=000000000019d6, ver=1, hashPrevBlock=00000000000000, hashMerkleRoot=4a5e1e, nTime=1231006505, nBits=1d00ffff, nNonce=2083236893, vtx=1)
+ *   CTransaction(hash=4a5e1e, ver=1, vin.size=1, vout.size=1, nLockTime=0)
+ *     CTxIn(COutPoint(000000, -1), coinbase 04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73)
+ *     CTxOut(nValue=50.00000000, scriptPubKey=0x5F1DF16B2B704C8A578D0B)
+ *   vMerkleTree: 4a5e1e
+ */
+static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
+{
+    const char* pszTimestamp = "PWDH Community forever , since 1998 | 2026-03-07";
+    const CScript genesisOutputScript = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
+    return CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
+}
+
+/**
+ * Main network on which people trade goods and services.
+ */
+class CMainParams : public CChainParams {
+public:
+    CMainParams() {
+        m_chain_type = ChainType::MAIN;
+        consensus.signet_blocks = false;
+        consensus.signet_challenge.clear();
+        consensus.nSubsidyHalvingInterval = 210240;
+        consensus.script_flag_exceptions.emplace( // BIP16 exception
+            uint256S("0x0000000028f062b221c1a8a5cf0244b1627315f7aa5b775b931cfec46dc17ceb"), SCRIPT_VERIFY_NONE);
+        consensus.script_flag_exceptions.emplace( // Taproot exception
+            uint256S("0x0000000028f062b221c1a8a5cf0244b1627315f7aa5b775b931cfec46dc17ceb"), SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS);
+        consensus.BIP34Height = 0;
+        consensus.BIP34Hash = uint256{};
+        consensus.BIP65Height = 0;
+        consensus.BIP66Height = 0;
+        consensus.CSVHeight = 0;
+        consensus.SegwitHeight = 0;
+
+        consensus.nRuleChangeActivationThreshold = 7258;
+        consensus.nMinerConfirmationWindow = 8064;
+
+        // Taproot BIP9 deployment
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].bit = 2;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 0;
+
+        // Disable TESTDUMMY deployment
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].min_activation_height = 0;
+
+        consensus.MinBIP9WarningHeight = 0;
+
+        // Mining/difficulty rules
+        consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        consensus.nPowTargetSpacing = 150;
+        consensus.nPowTargetTimespan = 5 * consensus.nPowTargetSpacing;
+        consensus.fPowAllowMinDifficultyBlocks = false;
+        consensus.fPowNoRetargeting = false;
+
+        
+        consensus.nMinimumChainWork = uint256{};
+        consensus.defaultAssumeValid = uint256{};
+
+        /**
+         * The message start string is designed to be unlikely to occur in normal data.
+         * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
+         * a large 32-bit integer with any alignment.
+         */
+        pchMessageStart[0] = 0x50;
+        pchMessageStart[1] = 0x57;
+        pchMessageStart[2] = 0x44;
+        pchMessageStart[3] = 0x48;
+        nDefaultPort = 37934;
+        nPruneAfterHeight = 200000;
+        m_assumed_blockchain_size = 0;
+        m_assumed_chain_state_size = 0;
+
+        genesis = CreateGenesisBlock(1772841600, 0, 0x207fffff, 1, 35 * COIN);
+        consensus.hashGenesisBlock = genesis.GetHash();
+
+        // Note that of those which support the service bits prefix, most only support a subset of
+        // possible options.
+        // This is fine at runtime as we'll fall back to using them as an addrfetch if they don't support the
+        // service bits we want, but we should get them updated to support all service bits wanted by any
+        // release ASAP to avoid it where possible.
+        vSeeds.emplace_back("seed01.pwdh.org.");
+        vSeeds.emplace_back("seed02.pwdh.org.");
+        vSeeds.emplace_back("seed03.pwdh.org.");
+        vSeeds.emplace_back("seed04.pwdh.org.");
+        vSeeds.emplace_back("seed05.pwdh.org.");
+        
+
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,55);
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,117);
+        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
+        base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x88, 0xB2, 0x1E};
+        base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
+
+        bech32_hrp = "pwdh";
+
+        vFixedSeeds.clear();
+
+        fDefaultConsistencyChecks = false;
+        m_is_mockable_chain = false;
+
+        checkpointData = {
+            {
+                {0, consensus.hashGenesisBlock},
+            }
+        };
+
+        m_assumeutxo_data = {
+            // TODO to be specified in a future patch.
+        };
+
+        chainTxData = ChainTxData{
+            .nTime    = 0,
+            .nTxCount = 0,
+            .dTxRate  = 0,
+        };
+    }
+};
+
+/**
+ * Testnet (v3): public test network which is reset from time to time.
+ */
+class CTestNetParams : public CChainParams {
+public:
+    CTestNetParams() {
+        m_chain_type = ChainType::TESTNET;
+        consensus.signet_blocks = false;
+        consensus.signet_challenge.clear();
+        consensus.nSubsidyHalvingInterval = 210240;
+        consensus.script_flag_exceptions.emplace( // BIP16 exception
+            uint256S("0x00000000dd30457c001f4095d208cc1296b0eed002427aa599874af7a432b105"), SCRIPT_VERIFY_NONE);
+        consensus.BIP34Height = 0;
+        consensus.BIP34Hash = uint256{};
+        consensus.BIP65Height = 0;
+        consensus.BIP66Height = 0;
+        consensus.CSVHeight = 0;
+        consensus.SegwitHeight = 0;
+        consensus.MinBIP9WarningHeight = 0;
+        consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        consensus.nPowTargetSpacing = 150;
+        consensus.nPowTargetTimespan = 5 * consensus.nPowTargetSpacing;
+        consensus.fPowAllowMinDifficultyBlocks = true;
+        consensus.fPowNoRetargeting = false;
+        consensus.nRuleChangeActivationThreshold = 7258;
+        consensus.nMinerConfirmationWindow = 8064;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].min_activation_height = 0; // No activation delay
+
+        // Deployment of Taproot (BIPs 340-342)
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].bit = 2;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 0;
+
+        consensus.nMinimumChainWork = uint256{};
+        consensus.defaultAssumeValid = uint256{};
+
+        pchMessageStart[0] = 0x50;
+        pchMessageStart[1] = 0x57;
+        pchMessageStart[2] = 0x54;
+        pchMessageStart[3] = 0x48;
+        nDefaultPort = 38934;
+        nPruneAfterHeight = 1000;
+        m_assumed_blockchain_size = 0;
+        m_assumed_chain_state_size = 0;
+
+        genesis = CreateGenesisBlock(1772841601, 6, 0x207fffff, 1, 35 * COIN);
+        consensus.hashGenesisBlock = genesis.GetHash();
+
+        vFixedSeeds.clear();
+        vSeeds.clear();
+        vSeeds.emplace_back("testnet.pwdh.ddns.net.");
+
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,115);
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
+        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
+        base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
+        base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
+
+        bech32_hrp = "tpwdh";
+
+        vFixedSeeds.clear();
+
+        fDefaultConsistencyChecks = false;
+        m_is_mockable_chain = false;
+
+        checkpointData = {
+            {
+                {0, consensus.hashGenesisBlock},
+            }
+        };
+
+        m_assumeutxo_data = {
+        };
+
+        chainTxData = ChainTxData{
+            .nTime    = 0,
+            .nTxCount = 0,
+            .dTxRate  = 0,
+        };
+    }
+};
+
+/**
+ * Signet: test network with an additional consensus parameter (see BIP325).
+ */
+class SigNetParams : public CChainParams {
+public:
+    explicit SigNetParams(const SigNetOptions& options)
+    {
+        std::vector<uint8_t> bin;
+        vSeeds.clear();
+
+        if (!options.challenge) {
+            bin = ParseHex("51");
+            consensus.nMinimumChainWork = uint256{};
+            consensus.defaultAssumeValid = uint256{};
+            m_assumed_blockchain_size = 0;
+            m_assumed_chain_state_size = 0;
+            chainTxData = ChainTxData{
+                0,
+                0,
+                0,
+            };
+        } else {
+            bin = *options.challenge;
+            consensus.nMinimumChainWork = uint256{};
+            consensus.defaultAssumeValid = uint256{};
+            m_assumed_blockchain_size = 0;
+            m_assumed_chain_state_size = 0;
+            chainTxData = ChainTxData{
+                0,
+                0,
+                0,
+            };
+            LogPrintf("Signet with challenge %s\n", HexStr(bin));
+        }
+
+        if (options.seeds) {
+            vSeeds = *options.seeds;
+        }
+
+        m_chain_type = ChainType::SIGNET;
+        consensus.signet_blocks = true;
+        consensus.signet_challenge.assign(bin.begin(), bin.end());
+        consensus.nSubsidyHalvingInterval = 210000;
+        consensus.BIP34Height = 1;
+        consensus.BIP34Hash = uint256{};
+        consensus.BIP65Height = 1;
+        consensus.BIP66Height = 1;
+        consensus.CSVHeight = 1;
+        consensus.SegwitHeight = 1;
+        consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+        consensus.nPowTargetSpacing = 10 * 60;
+        consensus.fPowAllowMinDifficultyBlocks = false;
+        consensus.fPowNoRetargeting = false;
+        consensus.nRuleChangeActivationThreshold = 1815; // 90% of 2016
+        consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
+        consensus.MinBIP9WarningHeight = 0;
+        consensus.powLimit = uint256S("00000377ae000000000000000000000000000000000000000000000000000000");
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = Consensus::BIP9Deployment::NEVER_ACTIVE;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].min_activation_height = 0; // No activation delay
+
+        // Activation of Taproot (BIPs 340-342)
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].bit = 2;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 0; // No activation delay
+
+        // message start is defined as the first 4 bytes of the sha256d of the block script
+        HashWriter h{};
+        h << consensus.signet_challenge;
+        uint256 hash = h.GetHash();
+        std::copy_n(hash.begin(), 4, pchMessageStart.begin());
+
+        nDefaultPort = 39934;
+        nPruneAfterHeight = 1000;
+
+        genesis = CreateGenesisBlock(1750495451, 2366523058, 0x1d00ffff, 1, 50 * COIN);
+        consensus.hashGenesisBlock = genesis.GetHash();
+
+        vFixedSeeds.clear();
+
+        m_assumeutxo_data = {
+            {
+                .height = 160'000,
+                .hash_serialized = AssumeutxoHash{uint256S("0xfe0a44309b74d6b5883d246cb419c6221bcccf0b308c9b59b7d70783dbdf928a")},
+                .nChainTx = 2289496,
+                .blockhash = uint256S("0x0000003ca3c99aff040f2563c2ad8f8ec88bd0fd6b8f0895cfaf1ef90353a62c")
+            }
+        };
+
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
+        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
+        base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
+        base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
+
+        bech32_hrp = "tb";
+
+        fDefaultConsistencyChecks = false;
+        m_is_mockable_chain = false;
+    }
+};
+
+/**
+ * Regression test: intended for private networks only. Has minimal difficulty to ensure that
+ * blocks can be found instantly.
+ */
+class CRegTestParams : public CChainParams
+{
+public:
+    explicit CRegTestParams(const RegTestOptions& opts)
+    {
+        m_chain_type = ChainType::REGTEST;
+        consensus.signet_blocks = false;
+        consensus.signet_challenge.clear();
+        consensus.nSubsidyHalvingInterval = 150;
+        consensus.BIP34Height = 1; // Always active unless overridden
+        consensus.BIP34Hash = uint256();
+        consensus.BIP65Height = 1;  // Always active unless overridden
+        consensus.BIP66Height = 1;  // Always active unless overridden
+        consensus.CSVHeight = 1;    // Always active unless overridden
+        consensus.SegwitHeight = 0; // Always active unless overridden
+        consensus.MinBIP9WarningHeight = 0;
+        consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        consensus.nPowTargetSpacing = 150;
+        consensus.nPowTargetTimespan = 5 * consensus.nPowTargetSpacing;
+        consensus.fPowAllowMinDifficultyBlocks = true;
+        consensus.fPowNoRetargeting = false;
+        consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
+        consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
+
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].min_activation_height = 0; // No activation delay
+
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].bit = 2;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TAPROOT].min_activation_height = 0; // No activation delay
+
+        consensus.nMinimumChainWork = uint256{};
+        consensus.defaultAssumeValid = uint256{};
+
+        pchMessageStart[0] = 0x50;
+        pchMessageStart[1] = 0x57;
+        pchMessageStart[2] = 0x52;
+        pchMessageStart[3] = 0x48;
+        nDefaultPort = 40934;
+        nPruneAfterHeight = opts.fastprune ? 100 : 1000;
+        m_assumed_blockchain_size = 0;
+        m_assumed_chain_state_size = 0;
+
+        for (const auto& [dep, height] : opts.activation_heights) {
+            switch (dep) {
+            case Consensus::BuriedDeployment::DEPLOYMENT_SEGWIT:
+                consensus.SegwitHeight = int{height};
+                break;
+            case Consensus::BuriedDeployment::DEPLOYMENT_HEIGHTINCB:
+                consensus.BIP34Height = int{height};
+                break;
+            case Consensus::BuriedDeployment::DEPLOYMENT_DERSIG:
+                consensus.BIP66Height = int{height};
+                break;
+            case Consensus::BuriedDeployment::DEPLOYMENT_CLTV:
+                consensus.BIP65Height = int{height};
+                break;
+            case Consensus::BuriedDeployment::DEPLOYMENT_CSV:
+                consensus.CSVHeight = int{height};
+                break;
+            }
+        }
+
+        for (const auto& [deployment_pos, version_bits_params] : opts.version_bits_parameters) {
+            consensus.vDeployments[deployment_pos].nStartTime = version_bits_params.start_time;
+            consensus.vDeployments[deployment_pos].nTimeout = version_bits_params.timeout;
+            consensus.vDeployments[deployment_pos].min_activation_height = version_bits_params.min_activation_height;
+        }
+
+        genesis = CreateGenesisBlock(1772841602, 3, 0x207fffff, 1, 35 * COIN);
+        consensus.hashGenesisBlock = genesis.GetHash();
+
+        vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
+        vSeeds.clear();
+        vSeeds.emplace_back("dummySeed.invalid.");
+
+        fDefaultConsistencyChecks = true;
+        m_is_mockable_chain = true;
+
+        checkpointData = {
+            {
+                {0, consensus.hashGenesisBlock},
+            }
+        };
+
+        m_assumeutxo_data = {
+            {
+                .height = 110,
+                .hash_serialized = AssumeutxoHash{uint256S("0x6657b736d4fe4db0cbc796789e812d5dba7f5c143764b1b6905612f1830609d1")},
+                .nChainTx = 111,
+                .blockhash = uint256S("0x696e92821f65549c7ee134edceeeeaaa4105647a3c4fd9f298c0aec0ab50425c")
+            },
+            {
+                // For use by test/functional/feature_assumeutxo.py
+                .height = 299,
+                .hash_serialized = AssumeutxoHash{uint256S("0xa4bf3407ccb2cc0145c49ebba8fa91199f8a3903daf0883875941497d2493c27")},
+                .nChainTx = 334,
+                .blockhash = uint256S("0x3bb7ce5eba0be48939b7a521ac1ba9316afee2c7bada3a0cca24188e6d7d96c0")
+            },
+        };
+
+        chainTxData = ChainTxData{
+            0,
+            0,
+            0
+        };
+
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,115);
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
+        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
+        base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
+        base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
+
+        bech32_hrp = "rpwdh";
+    }
+};
+
+std::unique_ptr<const CChainParams> CChainParams::SigNet(const SigNetOptions& options)
+{
+    return std::make_unique<const SigNetParams>(options);
+}
+
+std::unique_ptr<const CChainParams> CChainParams::RegTest(const RegTestOptions& options)
+{
+    return std::make_unique<const CRegTestParams>(options);
+}
+
+std::unique_ptr<const CChainParams> CChainParams::Main()
+{
+    return std::make_unique<const CMainParams>();
+}
+
+std::unique_ptr<const CChainParams> CChainParams::TestNet()
+{
+    return std::make_unique<const CTestNetParams>();
+}

@@ -1,0 +1,33 @@
+# /etc/conf.d/pwdhd: config file for /etc/init.d/pwdhd
+
+# Config file location
+#PWDHD_CONFIGFILE="/etc/pwdh/pwdh.conf"
+
+# What directory to write pidfile to?  (created and owned by $PWDHD_USER)
+#PWDHD_PIDDIR="/var/run/pwdhd"
+
+# What filename to give the pidfile
+#PWDHD_PIDFILE="${PWDHD_PIDDIR}/pwdhd.pid"
+
+# Where to write pwdhd data (be mindful that the blockchain is large)
+#PWDHD_DATADIR="/var/lib/pwdhd"
+
+# User and group to own pwdhd process
+#PWDHD_USER="pwdh"
+#PWDHD_GROUP="pwdh"
+
+# Path to pwdhd executable
+#PWDHD_BIN="/usr/bin/pwdhd"
+
+# Nice value to run pwdhd under
+#PWDHD_NICE=0
+
+# Additional options (avoid -conf and -datadir, use flags above)
+#PWDHD_OPTS=""
+
+# The timeout in seconds OpenRC will wait for pwdhd to terminate
+# after a SIGTERM has been raised.
+# Note that this will be mapped as argument to start-stop-daemon's
+# '--retry' option, which means you can specify a retry schedule
+# here. For more information see man 8 start-stop-daemon.
+PWDHD_SIGTERM_TIMEOUT=600

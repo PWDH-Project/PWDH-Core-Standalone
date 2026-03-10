@@ -1,0 +1,7 @@
+[main]
+host = https://www.transifex.com
+
+[o:pwdh:p:pwdh:r:qt-translation-027x]
+file_filter = src/qt/locale/pwdh_<lang>.xlf
+source_file = src/qt/locale/pwdh_en.xlf
+source_lang = en
