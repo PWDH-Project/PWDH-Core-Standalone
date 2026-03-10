@@ -1,0 +1,23 @@
+name: pwdh-node
+
+services:
+  pwdh-mainnet:
+    image: ${PWDH_IMAGE:-ghcr.io/pwdh-project/pwdh-core-daemon:1.0.0}
+    container_name: pwdh-mainnet
+    restart: unless-stopped
+    command:
+      - "-server=1"
+      - "-listen=1"
+      - "-txindex=1"
+      - "-dnsseed=1"
+      - "-printtoconsole=1"
+      - "-conf=/etc/pwdh/pwdh.conf"
+      - "-datadir=/var/lib/pwdh"
+    volumes:
+      - ./pwdh.conf:/etc/pwdh/pwdh.conf:ro
+      - pwdh_data:/var/lib/pwdh
+    ports:
+      - "37934:37934"
+
+volumes:
+  pwdh_data:
